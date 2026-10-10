@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prefix="${1:-}"
+versions="$("$(dirname "$0")/list-all")"
+latest="$(printf '%s\n' "$versions" | tr ' ' '\n' | awk -v prefix="$prefix" 'index($0, prefix) == 1 { latest = $0 } END { print latest }')"
+test -n "$latest"
+printf '%s\n' "$latest"

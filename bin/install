@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${ASDF_DOWNLOAD_PATH:?ASDF_DOWNLOAD_PATH is required}"
+: "${ASDF_INSTALL_PATH:?ASDF_INSTALL_PATH is required}"
+payload="$ASDF_DOWNLOAD_PATH/payload"
+[[ -f "$payload/runx" ]] || { echo 'Runx CLI was not downloaded' >&2; exit 1; }
+mkdir -p "$ASDF_INSTALL_PATH"
+[[ ! -e "$ASDF_INSTALL_PATH/bin" ]] || { echo 'Runx install already exists' >&2; exit 1; }
+stage_dir="$(mktemp -d "$ASDF_INSTALL_PATH/.runx.XXXXXX")"
+trap 'rm -rf "$stage_dir"' EXIT
+mkdir "$stage_dir/bin"
+install -m 755 "$payload/runx" "$stage_dir/bin/runx"
+if [[ -f "$payload/runx-js-worker" ]]; then
+  install -m 755 "$payload/runx-js-worker" "$stage_dir/bin/runx-js-worker"
+fi
+mv "$stage_dir/bin" "$ASDF_INSTALL_PATH/bin"
+rmdir "$stage_dir"
+trap - EXIT

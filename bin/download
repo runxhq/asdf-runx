@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${ASDF_INSTALL_VERSION:?ASDF_INSTALL_VERSION is required}"
+: "${ASDF_DOWNLOAD_PATH:?ASDF_DOWNLOAD_PATH is required}"
+[[ "${ASDF_INSTALL_TYPE:-version}" == version ]] || { echo 'Runx installs published versions only' >&2; exit 1; }
+[[ "$ASDF_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid Runx version' >&2; exit 1; }
+
+case "$(uname -s):$(uname -m)" in
+  Darwin:arm64|Darwin:aarch64) target=aarch64-apple-darwin ;;
+  Darwin:x86_64) target=x86_64-apple-darwin ;;
+  Linux:aarch64|Linux:arm64) target=aarch64-unknown-linux-musl ;;
+  Linux:x86_64|Linux:amd64) target=x86_64-unknown-linux-musl ;;
+  *) echo 'Unsupported Runx platform' >&2; exit 1 ;;
+esac
+
+version="$ASDF_INSTALL_VERSION"
+stem="runx-${version}-${target}"
+archive="${stem}.tar.gz"
+base="https://github.com/runxhq/runx/releases/download/cli-v${version}"
+temp_dir="$(mktemp -d)"
+stage_dir=''
+cleanup() {
+  rm -rf "$temp_dir"
+  if [[ -n "$stage_dir" ]]; then rm -rf "$stage_dir"; fi
+}
+trap cleanup EXIT
+
+curl --fail --location --silent --show-error --retry 3 --output "$temp_dir/$archive" "$base/$archive"
+curl --fail --location --silent --show-error --retry 3 --output "$temp_dir/$archive.sha256" "$base/$archive.sha256"
+read -r expected checksum_name < "$temp_dir/$archive.sha256"
+[[ "$expected" =~ ^[0-9a-f]{64}$ && "$checksum_name" == "$archive" ]] || { echo 'Invalid Runx checksum sidecar' >&2; exit 1; }
+if command -v sha256sum >/dev/null 2>&1; then
+  actual="$(sha256sum "$temp_dir/$archive" | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+  actual="$(shasum -a 256 "$temp_dir/$archive" | awk '{print $1}')"
+else
+  echo 'A SHA-256 tool is required' >&2
+  exit 1
+fi
+[[ "$actual" == "$expected" ]] || { echo 'Runx archive checksum mismatch' >&2; exit 1; }
+
+members="$(tar -tzf "$temp_dir/$archive")"
+printf '%s\n' "$members" | grep -Fxq "$stem/runx" || { echo 'Runx archive is missing the CLI' >&2; exit 1; }
+if printf '%s\n' "$members" | grep -Fxq "$stem/runx-js-worker"; then
+  tar -xzf "$temp_dir/$archive" -C "$temp_dir" "$stem/runx" "$stem/runx-js-worker"
+else
+  tar -xzf "$temp_dir/$archive" -C "$temp_dir" "$stem/runx"
+fi
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+[[ ! -e "$ASDF_DOWNLOAD_PATH/payload" ]] || { echo 'Runx download already exists' >&2; exit 1; }
+stage_dir="$(mktemp -d "$ASDF_DOWNLOAD_PATH/.runx.XXXXXX")"
+cp "$temp_dir/$stem/runx" "$stage_dir/"
+if [[ -f "$temp_dir/$stem/runx-js-worker" ]]; then
+  cp "$temp_dir/$stem/runx-js-worker" "$stage_dir/"
+fi
+mv "$stage_dir" "$ASDF_DOWNLOAD_PATH/payload"
+stage_dir=''

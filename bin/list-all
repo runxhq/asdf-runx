@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+git ls-remote --tags --refs https://github.com/runxhq/runx.git 'refs/tags/cli-v*' \
+  | sed -nE 's#^[^[:space:]]+[[:space:]]+refs/tags/cli-v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+  | sort -t. -k1,1n -k2,2n -k3,3n -u \
+  | paste -sd ' ' -
