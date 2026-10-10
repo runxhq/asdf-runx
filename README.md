@@ -11,6 +11,6 @@ asdf set -u runx latest
 runx --version
 ```
 
-The plugin discovers `cli-v` tags and downloads the matching release archive. It installs `runx-js-worker` beside `runx` whenever the archive includes it. Historical archives without a worker remain installable. It does not build Runx or maintain a separate version number.
+The plugin lists published `cli-v` releases only after the archives and checksum sidecars for its supported platforms are present. It installs `runx-js-worker` beside `runx` whenever the archive includes it. Historical archives without a worker remain installable. It does not build Runx or maintain a separate version number.
 
-Supported platforms: macOS and Linux on arm64 or x86_64. The plugin requires Git, curl, tar, and either `sha256sum` or `shasum`.
+Supported platforms: macOS and Linux on arm64 or x86_64. The plugin requires curl, jq, tar, and either `sha256sum` or `shasum`.

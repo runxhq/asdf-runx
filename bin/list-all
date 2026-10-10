@@ -1,7 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git ls-remote --tags --refs https://github.com/runxhq/runx.git 'refs/tags/cli-v*' \
-  | sed -nE 's#^[^[:space:]]+[[:space:]]+refs/tags/cli-v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
-  | sort -t. -k1,1n -k2,2n -k3,3n -u \
-  | paste -sd ' ' -
+command -v jq >/dev/null 2>&1 || { echo 'jq is required to list published Runx releases' >&2; exit 1; }
+curl_args=(--fail --location --silent --show-error --retry 3 -H 'Accept: application/vnd.github+json')
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  curl_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
+
+page=1
+while :; do
+  releases="$(curl "${curl_args[@]}" "https://api.github.com/repos/runxhq/runx/releases?per_page=100&page=$page")"
+  count="$(jq 'length' <<< "$releases")"
+  jq -r '
+    ["aarch64-apple-darwin", "x86_64-apple-darwin", "aarch64-unknown-linux-musl", "x86_64-unknown-linux-musl"] as $targets
+    | .[]
+    | select(.draft == false and .prerelease == false)
+    | .tag_name as $tag
+    | select($tag | test("^cli-v[0-9]+\\.[0-9]+\\.[0-9]+$"))
+    | ($tag | ltrimstr("cli-v")) as $version
+    | ([.assets[].name]) as $assets
+    | select(all($targets[]; . as $target
+        | ("runx-" + $version + "-" + $target + ".tar.gz") as $archive
+        | ($assets | index($archive) != null and index($archive + ".sha256") != null)))
+    | $version
+  ' <<< "$releases"
+  (( count < 100 )) && break
+  page=$((page + 1))
+done | sort -t. -k1,1n -k2,2n -k3,3n -u | paste -sd ' ' -
