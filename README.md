@@ -1,5 +1,7 @@
 # asdf-runx
 
+[![Install check](https://github.com/runxhq/asdf-runx/actions/workflows/plugin.yml/badge.svg)](https://github.com/runxhq/asdf-runx/actions/workflows/plugin.yml)
+
 Install [Runx](https://runx.ai) from its published, checksummed CLI archives with [asdf](https://asdf-vm.com/).
 
 ```sh

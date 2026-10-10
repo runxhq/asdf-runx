@@ -1,0 +1,28 @@
+name: Install check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bin/**"
+      - ".github/workflows/plugin.yml"
+  workflow_dispatch:
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the latest published archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n bin/*
+          export ASDF_INSTALL_TYPE=version
+          export ASDF_INSTALL_VERSION="$(bin/latest-stable)"
+          export ASDF_DOWNLOAD_PATH="$RUNNER_TEMP/runx-download"
+          export ASDF_INSTALL_PATH="$RUNNER_TEMP/runx-install"
+          bin/download
+          bin/install
+          "$ASDF_INSTALL_PATH/bin/runx" --version
+          test -x "$ASDF_INSTALL_PATH/bin/runx-js-worker"
